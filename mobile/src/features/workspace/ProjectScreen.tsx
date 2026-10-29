@@ -1,3 +1,4 @@
+import { UsageLimitCard } from "@/features/sessions/UsageLimitCard";
 import { router, Stack, useIsFocused } from "expo-router";
 import {
   ConnectionNotice,
@@ -352,6 +353,9 @@ export function ProjectScreen({
           ) : null}
           {sessionId && conversation.question ? (
             <QuestionCard conversationId={sessionId} prompt={conversation.question} />
+          ) : null}
+          {sessionId && conversation.usageLimit ? (
+            <UsageLimitCard key={`usage:${sessionId}`} conversationId={sessionId} state={conversation.usageLimit} />
           ) : null}
           <Composer
             key={sessionId ?? project.id}

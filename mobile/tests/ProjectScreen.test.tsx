@@ -3,7 +3,8 @@ import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ProjectScreen } from "@/features/workspace/ProjectScreen";
-import type { Project } from "@/features/workspace/types";
+import MonoScreen from "@/app/mono/[monoId]";
+import type { UsageLimitState, Project } from "@/features/workspace/types";
 import type { Workspace } from "@/features/workspace/WorkspaceMenu";
 import { GlassBlurTarget } from "@/ui/LiquidView";
 
@@ -16,6 +17,10 @@ const desktop = vi.hoisted(() => ({
   page: "chat",
   focused: true,
   os: "ios",
+  usageLimit: undefined as UsageLimitState | undefined,
+  cardMounts: 0,
+  monoId: "first",
+  watched: null as string | null,
   headerTarget: undefined as unknown,
   header: {} as {
     headerTitle?: unknown;
@@ -27,6 +32,13 @@ const desktop = vi.hoisted(() => ({
   existing: { path: "/repo/.worktrees/mobile", name: "feature/mobile" },
 }));
 
+vi.mock("@/features/sessions/UsageLimitCard", () => ({
+  UsageLimitCard: ({ conversationId, state }: { conversationId: string; state: UsageLimitState }) => {
+    const [mount] = useState(() => ++desktop.cardMounts);
+    return <output data-usage-card data-mount={mount}>{conversationId}:{state.token}</output>;
+  },
+}));
+vi.mock("@/features/mascots/PixelMascot", () => ({ PixelMascot: () => null }));
 vi.mock("react-native-svg", () => ({ default: () => <svg />, Path: () => null }));
 vi.mock("react-native", () => ({
   Platform: {
@@ -89,6 +101,8 @@ vi.mock("react-native-reanimated", () => ({
 vi.mock("react-native-worklets", () => ({ scheduleOnRN: vi.fn() }));
 vi.mock("expo-router", () => ({
   router: { push: vi.fn() },
+  Redirect: () => null,
+  useLocalSearchParams: () => ({ monoId: desktop.monoId }),
   Stack: {
     Screen: ({ options }: { options: typeof desktop.header }) => {
       desktop.header = options;
@@ -221,8 +235,10 @@ vi.mock("@/features/workspace/WorkspaceProvider", () => ({
     startSession: desktop.startSession,
     sendMessage: desktop.sendMessage,
     respondApproval: desktop.respondApproval,
+    monos: ["first", "second"].map(id => ({ id, name: id, mascot: "cat", color: "blue", status: "idle" })),
   }),
-  useConversation: () => ({ approvals: desktop.approvals }),
+  monoConversationId: (id: string) => `mono:${id}`,
+  useConversation: (id: string | null) => { desktop.watched = id; return { usageLimit: desktop.usageLimit, approvals: desktop.approvals }; },
   useConversationTurns: () => ({ turns: [], hasOlder: false }),
 }));
 vi.mock("@/features/workspace/WorkspaceMenu", () => ({
@@ -345,6 +361,9 @@ describe("new session composer workspace", () => {
     desktop.page = "chat";
     desktop.focused = true;
     desktop.os = "ios";
+    desktop.usageLimit = undefined;
+    desktop.cardMounts = 0;
+    desktop.monoId = "first";
     container = document.createElement("div");
     root = createRoot(container);
   });
@@ -372,6 +391,31 @@ describe("new session composer workspace", () => {
     expect(container.textContent).toContain("git status");
     await act(async () => button("Allow once").click());
     expect(desktop.respondApproval).toHaveBeenCalledExactlyOnceWith("existing-session", prompt, "allow");
+  });
+
+  const usageLimit: UsageLimitState = { token: "paused", canResume: true, canAutoResume: false, resumeAtReset: false,
+    resetLabel: "Reset time unknown", limitation: "Keep desktop running" };
+  it("wires usage cards into project sessions and remounts them when the session changes", () => {
+    desktop.usageLimit = usageLimit;
+    render("first");
+    expect(container.querySelector("[data-usage-card]")?.textContent).toBe("first:paused");
+    expect(desktop.watched).toBe("first");
+    render("second");
+    expect(container.querySelector("[data-usage-card]")?.textContent).toBe("second:paused");
+    expect(desktop.cardMounts).toBe(2);
+    desktop.usageLimit = undefined;
+    render("second");
+    expect(container.querySelector("[data-usage-card]")).toBeNull();
+  });
+  it("wires usage cards into Mono sessions and remounts them when the Mono changes", () => {
+    desktop.usageLimit = usageLimit;
+    act(() => root.render(<MonoScreen />));
+    expect(container.querySelector("[data-usage-card]")?.textContent).toBe("mono:first:paused");
+    expect(desktop.watched).toBe("mono:first");
+    desktop.monoId = "second";
+    act(() => root.render(<MonoScreen />));
+    expect(container.querySelector("[data-usage-card]")?.textContent).toBe("mono:second:paused");
+    expect(desktop.cardMounts).toBe(2);
   });
 
   it("keeps circular Android project/settings controls after switching projects", () => {

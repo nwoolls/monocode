@@ -1,3 +1,4 @@
+import { UsageLimitCard } from "@/features/sessions/UsageLimitCard";
 import { Redirect, useIsFocused, useLocalSearchParams } from "expo-router";
 import { useMemo } from "react";
 import { ConnectionNotice } from "@/features/connection/ConnectionNotice";
@@ -47,6 +48,9 @@ export default function MonoScreen() {
           ) : null}
           {conversation.question ? (
             <QuestionCard conversationId={conversationId} prompt={conversation.question} />
+          ) : null}
+          {conversationId && conversation.usageLimit ? (
+            <UsageLimitCard key={`usage:${conversationId}`} conversationId={conversationId} state={conversation.usageLimit} />
           ) : null}
           <Composer
             key={mono.id}

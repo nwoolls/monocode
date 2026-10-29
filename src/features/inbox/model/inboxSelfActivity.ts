@@ -3,7 +3,7 @@ import { sameProjectPath } from "../../projects/model/recents";
 const MAX_PENDING_AGE_MS = 10 * 60_000;
 
 export type InboxSelfActivityTarget = {
-  provider: "github" | "gitlab" | "linear" | "jira" | "azuredevops" | "sonar";
+  provider: "github" | "gitlab" | "linear" | "jira" | "azuredevops" | "sonar" | "bitbucket";
   kind?: "issue" | "pr" | "linear" | "jira" | "sonar";
   repo?: string;
   number?: number;

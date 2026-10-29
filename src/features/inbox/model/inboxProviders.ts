@@ -7,6 +7,7 @@ export const INBOX_PROVIDER_LABELS: Record<InboxProvider, string> = {
   sonar: "Sonar",
   gitlab: "GitLab",
   azuredevops: "ADO",
+  bitbucket: "Bitbucket",
 };
 
 export function isTrackerSource(source?: string): boolean {

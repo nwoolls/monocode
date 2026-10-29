@@ -10,6 +10,8 @@ import { GlassBlurTarget } from "@/ui/LiquidView";
 const desktop = vi.hoisted(() => ({
   startSession: vi.fn(),
   sendMessage: vi.fn(),
+  respondApproval: vi.fn(),
+  approvals: [] as import("@/features/workspace/types").ApprovalPrompt[],
   offline: false,
   page: "chat",
   focused: true,
@@ -33,6 +35,7 @@ vi.mock("react-native", () => ({
     },
   },
   View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  ScrollView: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
   Pressable: ({
     children,
@@ -217,8 +220,9 @@ vi.mock("@/features/workspace/WorkspaceProvider", () => ({
   useWorkspace: () => ({
     startSession: desktop.startSession,
     sendMessage: desktop.sendMessage,
+    respondApproval: desktop.respondApproval,
   }),
-  useConversation: () => ({}),
+  useConversation: () => ({ approvals: desktop.approvals }),
   useConversationTurns: () => ({ turns: [], hasOlder: false }),
 }));
 vi.mock("@/features/workspace/WorkspaceMenu", () => ({
@@ -284,6 +288,7 @@ vi.mock("@/ui/LiquidView", async () => {
 vi.mock("@/ui/theme", () => {
   const colors = { content: "white", muted: "gray", fill: "gray" };
   return {
+    radii: { card: 22 },
     useColors: () => colors,
     themedStyles: (create: (value: typeof colors) => object) => () =>
       create(colors),
@@ -334,6 +339,8 @@ describe("new session composer workspace", () => {
   beforeEach(() => {
     desktop.startSession.mockReset().mockResolvedValue("started-session");
     desktop.sendMessage.mockReset().mockResolvedValue(undefined);
+    desktop.approvals = [];
+    desktop.respondApproval.mockReset().mockResolvedValue(undefined);
     desktop.offline = false;
     desktop.page = "chat";
     desktop.focused = true;
@@ -355,6 +362,16 @@ describe("new session composer workspace", () => {
     desktop.focused = false;
     render("existing-session");
     expect(active()).toBe("false");
+  });
+
+  it("renders the real approval card and routes an ordinary session's decision", async () => {
+    const prompt = { token: "ordinary", requestId: 7, title: "Run?", detail: "git status",
+      decisions: [{ id: "allow" as const, label: "Allow once" }] };
+    desktop.approvals = [prompt];
+    render("existing-session");
+    expect(container.textContent).toContain("git status");
+    await act(async () => button("Allow once").click());
+    expect(desktop.respondApproval).toHaveBeenCalledExactlyOnceWith("existing-session", prompt, "allow");
   });
 
   it("keeps circular Android project/settings controls after switching projects", () => {

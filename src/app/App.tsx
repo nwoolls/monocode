@@ -1,4 +1,5 @@
 import { sessionConversationPage } from "../features/agent-app/model/sessionConversation";
+import { markMobileApprovalResolved, respondMobileApproval } from "../features/mobile/model/mobileApprovals";
 import { useMobileWorkspace } from "../features/mobile/hooks/useMobileWorkspace";
 import { hasMobileAttachments, mobileAttachments } from "../features/mobile/model/mobileAttachments";
 import {
@@ -8778,6 +8779,7 @@ function Workspace({
         runId,
         requestId: block.approval!.requestId,
         blockId,
+        approval: block.approval!,
       });
       appendToMono(monoId, {
         id: blockId,
@@ -9166,6 +9168,9 @@ function Workspace({
         }
         if (choice.runtimeMode) onRuntimeModeChange(session.id, choice.runtimeMode);
         return { sessionId: session.id };
+      }
+      if (method === "session.respondApproval") {
+        return respondMobileApproval(session.id, params, sessionsRef.current, onApproval);
       }
       if (method === "session.answerQuestion" || method === "session.keepQuestionOpen") {
         // As the composer's question card; only the question still waiting,
@@ -10789,6 +10794,7 @@ function Workspace({
               relay.requestId,
               decision,
             );
+          markMobileApprovalResolved(session, requestId);
           decideMonoBlockRef.current(
             sessionId,
             asked.id,
@@ -10806,6 +10812,7 @@ function Workspace({
         return;
       }
       respondHarnessApproval(session.harness, sessionId, requestId, decision);
+      markMobileApprovalResolved(session, requestId);
     },
     [],
   );

@@ -219,7 +219,7 @@ fn provider_access_modes(kind: Kind) -> &'static [AccessMode] {
     ];
     match kind {
         Kind::Claude | Kind::Codex | Kind::Devin | Kind::Grok => APPROVAL_MODES,
-        Kind::Cursor | Kind::OpenCode | Kind::Antigravity | Kind::Hermes => EDITS,
+        Kind::Cursor | Kind::OpenCode | Kind::Antigravity | Kind::Hermes | Kind::Copilot => EDITS,
         Kind::Pi | Kind::Omp | Kind::Fx => &[],
     }
 }
@@ -339,6 +339,8 @@ pub fn models_for(kind: Kind, account: &crate::accounts::Profile) -> Result<Vec<
     };
     let mut models: Vec<_> = if kind == Kind::Fx {
         fx_models(&value)
+    } else if kind == Kind::Copilot {
+        copilot_models(&value)
     } else if kind == Kind::Devin {
         provider::devin::catalog_models(&value)
     } else if kind.is_acp() {
@@ -468,6 +470,21 @@ fn leaves<'a>(values: &'a Value, out: &mut Vec<&'a Value>) {
             out.push(value);
         }
     }
+}
+// Session config only describes the current Copilot model. Never apply its
+// effort choices or permission/mode controls to every model in the picker.
+fn copilot_models(value: &Value) -> Vec<Model> {
+    let mut models = acp_models(value);
+    for model in &mut models {
+        model.controls.clear();
+        model.fast = false;
+        if !model.default {
+            model.efforts.clear();
+            model.default_effort = None;
+        }
+    }
+    models.sort_by_key(|model| !model.default);
+    models
 }
 fn acp_models(value: &Value) -> Vec<Model> {
     let configs: Vec<_> = value["configOptions"]
@@ -933,6 +950,20 @@ mod tests {
     use super::*;
 
     #[test]
+    fn copilot_catalog_keeps_current_model_first_and_scopes_effort() {
+        let models = copilot_models(&json!({"models":{"currentModelId":"b","availableModels":[
+            {"modelId":"a","name":"Model A"},{"modelId":"b","name":"Model B"},{"modelId":"a"}
+        ]},"configOptions":[
+            {"id":"reasoning_effort","currentValue":"high","options":[{"value":"low"},{"value":"high"}]},
+            {"id":"allow_all","currentValue":"off","options":[{"value":"on"},{"value":"off"}]}
+        ]}));
+        assert_eq!(models.len(), 2);
+        assert_eq!(models[0].id, "b");
+        assert_eq!(models[0].efforts, ["low", "high"]);
+        assert!(models[1].efforts.is_empty());
+        assert!(models.iter().all(|model| model.controls.is_empty()));
+    }
+    #[test]
     fn cached_catalogs_are_account_scoped_and_invalidated_together() {
         let account = crate::accounts::Profile {
             id: "catalog-cache-test".into(),
@@ -1007,6 +1038,10 @@ mod tests {
         assert!(access_modes(Kind::Devin, None).contains(&Auto));
         assert!(access_modes(Kind::Grok, Some(&unconfirmed)).contains(&Auto));
         assert!(!access_modes(Kind::Codex, Some(&manual)).contains(&Auto));
+        assert_eq!(
+            access_modes(Kind::Copilot, None),
+            vec![Supervised, AutoAcceptEdits, FullAccess]
+        );
         assert_eq!(
             access_modes(Kind::Cursor, None),
             [Supervised, AutoAcceptEdits, FullAccess]

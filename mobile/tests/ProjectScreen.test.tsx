@@ -39,6 +39,22 @@ vi.mock("@/features/sessions/UsageLimitCard", () => ({
   },
 }));
 vi.mock("@/features/mascots/PixelMascot", () => ({ PixelMascot: () => null }));
+vi.mock("expo-haptics", () => ({}));
+vi.mock("@/features/models/useMonoModel", () => ({ useMonoModel: () => ({}) }));
+vi.mock("@/features/workspace/monoAccent", () => ({ useMonoAccent: () => "theme" }));
+vi.mock("@/features/sessions/MonoCards", () => ({
+  MonoChoose: ({ children }: { children: ReactNode }) => children,
+  MonoMessageActions: ({ children }: { children: ReactNode }) => children,
+}));
+vi.mock("@/features/sessions/MonoMenu", () => ({ MonoMenu: () => null }));
+vi.mock("@/ui/Timed", () => ({ Timed: ({ children }: { children: ReactNode }) => children }));
+vi.mock("@/features/connection/ConnectionProvider", () => ({
+  useConnection: () => ({}),
+  useMonoTools: () => false,
+}));
+vi.mock("@/features/workspace/lastPlace", () => ({ rememberPlace: vi.fn() }));
+vi.mock("@/features/workspace/monoSeen", () => ({ markMonoSeen: vi.fn(), markMonoUnread: vi.fn() }));
+
 vi.mock("react-native-svg", () => ({ default: () => <svg />, Path: () => null }));
 vi.mock("react-native", () => ({
   Platform: {
@@ -268,6 +284,24 @@ vi.mock("@/features/workspace/WorkspaceMenu", () => ({
   ),
   WorkspaceLine: ({ branch }: { branch: string }) => <span>{branch}</span>,
 }));
+// The drawer's pager and its loading cover reach native modules; here the
+// drawer is shut and no screen switch is under way.
+vi.mock("@/ui/ScenePager", () => ({
+  useDrawerActions: () => ({
+    open: vi.fn(),
+    close: vi.fn(),
+    closeThen: (change: () => void) => change(),
+    allowSwipe: () => () => {},
+  }),
+  useDrawerSwipe: vi.fn(),
+  useSceneSwapping: () => false,
+  useSceneSwitching: () => false,
+}));
+vi.mock("@/ui/DitherLoading", () => ({ DitherLoading: () => null }));
+vi.mock("@/features/workspace/UnreadDot", () => ({
+  UnreadDot: () => null,
+  useAnyUnreadMono: () => false,
+}));
 vi.mock("@/ui/Icon", () => ({ Icon: () => null }));
 vi.mock("@/ui/LiquidView", async () => {
   const { createContext, use } = await import("react");
@@ -306,6 +340,9 @@ vi.mock("@/ui/theme", () => {
   return {
     radii: { card: 22 },
     useColors: () => colors,
+    useScheme: () => "dark",
+    ACCENTS: {},
+    AccentOverride: ({ children }: { children: ReactNode }) => children,
     themedStyles: (create: (value: typeof colors) => object) => () =>
       create(colors),
   };
@@ -421,7 +458,8 @@ describe("new session composer workspace", () => {
   it("keeps circular Android project/settings controls after switching projects", () => {
     desktop.os = "android";
     render();
-    for (const label of ["Switch project, Monocode", "Settings"]) {
+    // The drawer's button, where the project switcher was.
+    for (const label of ["Projects and monos", "Settings"]) {
       expect(button(label).style.borderRadius).toBe("22px");
       expect(button(label).hasAttribute("data-glass")).toBe(true);
     }
@@ -433,7 +471,7 @@ describe("new session composer workspace", () => {
         />,
       ),
     );
-    expect(button("Switch project, Other").style.borderRadius).toBe("22px");
+    expect(button("Projects and monos").style.borderRadius).toBe("22px");
     expect(button("Settings").hasAttribute("data-glass")).toBe(true);
     expect(desktop.header.headerTitleAlign).toBe("center");
   });
@@ -451,9 +489,7 @@ describe("new session composer workspace", () => {
     const renderAvatar = desktop.header.headerLeft as () => ReactNode;
     act(() => root.render(<>{renderAvatar()}</>));
     expect(desktop.headerTarget).toBe(target);
-    expect(button("Switch project, Monocode").hasAttribute("data-glass")).toBe(
-      true,
-    );
+    expect(button("Projects and monos").hasAttribute("data-glass")).toBe(true);
   });
 
   it("keeps Android session titles next to the back target and actions on the right", () => {

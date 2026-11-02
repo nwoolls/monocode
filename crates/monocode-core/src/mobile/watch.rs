@@ -241,6 +241,64 @@ mod tests {
     }
 
     #[test]
+    fn questions_and_approvals_update_independently() {
+        let question = json!({"requestId": 7, "questions": []});
+        let approvals = json!([{"token": "approval"}]);
+        let (first, baseline) = update(
+            None,
+            true,
+            false,
+            &question,
+            &[],
+            true,
+            &approvals,
+            &Value::Null,
+        )
+        .unwrap();
+        assert_eq!(first["question"], question);
+        assert_eq!(first["approvals"], approvals);
+
+        let (answered, baseline) = update(
+            Some(&baseline),
+            true,
+            false,
+            &Value::Null,
+            &[],
+            true,
+            &approvals,
+            &Value::Null,
+        )
+        .unwrap();
+        assert!(answered["question"].is_null());
+        assert!(answered.get("approvals").is_none());
+
+        let (resolved, baseline) = update(
+            Some(&baseline),
+            true,
+            false,
+            &Value::Null,
+            &[],
+            true,
+            &json!([]),
+            &Value::Null,
+        )
+        .unwrap();
+        assert_eq!(resolved["approvals"], json!([]));
+        assert!(resolved.get("question").is_none());
+        assert!(update(
+            Some(&baseline),
+            true,
+            false,
+            &Value::Null,
+            &[],
+            true,
+            &json!([]),
+            &Value::Null
+        )
+        .is_none());
+    }
+
+    #[test]
     fn unchanged_conversations_send_nothing_and_new_turns_send_only_themselves() {
         let none = Value::Null;
         let (first, baseline) = update(

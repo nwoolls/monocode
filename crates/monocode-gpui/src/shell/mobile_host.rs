@@ -2306,10 +2306,10 @@ fn older_page(
                 mono: look.mono.clone(),
                 pending: Vec::new(),
                 launches: &look.launches,
+                approvals: json!([]),
                 question: Value::Null,
                 history: page.before,
                 usage_limit: Value::Null,
-                approvals: json!([]),
             };
             let source = snapshot.source();
             let ids = turns::turn_ids(&source);

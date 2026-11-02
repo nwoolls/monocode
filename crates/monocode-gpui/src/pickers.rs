@@ -254,6 +254,7 @@ mod model_label_tests {
                             fast: false,
                             thinking: false,
                             default: false,
+                            supports_auto: None,
                             tiers: Vec::new(),
                             controls: Vec::new(),
                         })

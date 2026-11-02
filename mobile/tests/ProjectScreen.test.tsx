@@ -343,7 +343,7 @@ vi.mock("@/ui/theme", () => {
     radii: { card: 22 },
     useColors: () => colors,
     useScheme: () => "dark",
-  useAccent: () => "theme",
+    useAccent: () => "theme",
     ACCENTS: {},
     AccentOverride: ({ children }: { children: ReactNode }) => children,
     themedStyles: (create: (value: typeof colors) => object) => () =>

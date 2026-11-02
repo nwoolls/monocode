@@ -155,7 +155,7 @@ it("uses window width before measurement, then the local pane width", () => {
   expect(container.querySelector("[data-width]")!.getAttribute("data-width")).toBe("740");
 });
 
-it("hides the sidebar for Mono-only mode without replacing the conversation", () => {
+it("hides the workspace sidebar for Mono-only mode without replacing the conversation", () => {
   act(() => root.render(<WorkspaceLayout><input defaultValue="Keep my draft" /></WorkspaceLayout>));
   resize(1000, 740);
   expect(container.querySelector('[data-testid="workspace-sidebar"]')).not.toBeNull();

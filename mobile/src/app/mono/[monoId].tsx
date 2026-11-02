@@ -218,8 +218,8 @@ function MonoScreen({ monoOnly }: { monoOnly: boolean }) {
           ) : null}
           <Composer
             key={mono.id}
-            active={focused}
             // One line: the header names the Mono, and its model lives in settings.
+            active={focused}
             compact
             context=""
             branch=""

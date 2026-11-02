@@ -296,7 +296,7 @@ it("does not apply a previous transition's settled iOS keyboard when onEnd beats
   }
 });
 
-it("ignores another input's settled frame while retaining rotation correction for its owner", () => {
+it("ignores another input's settled keyboard frame and still corrects its owner's rotation", () => {
   layout.OS = "ios";
   layout.windowHeight = 1000;
   const container = document.createElement("div");
@@ -316,6 +316,7 @@ it("ignores another input's settled frame while retaining rotation correction fo
     act(() => layout.keyboardHandler!.onEnd({ height: 400, progress: 1 }));
     render();
     expect(lift()).toBe("0");
+
     act(() => layout.keyboardHandler!.onStart({ height: 400, progress: 1, target: 42 }));
     layout.windowHeight = 600;
     act(() => layout.frameHandler!({ endCoordinates: { screenY: 400, height: 200 } }));

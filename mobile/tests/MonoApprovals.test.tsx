@@ -72,6 +72,8 @@ function deferred<T>() {
 vi.mock("@/features/connection/selection", () => ({ selectedWorkspace: (catalog: unknown) => catalog }));
 vi.mock("expo-router", () => ({ useLocalSearchParams: () => ({ monoId: "one" }), useIsFocused: () => true, Redirect: () => null }));
 vi.mock("expo-haptics", () => ({}));
+vi.mock("@/ui/useNativeHeaderHeight", () => ({ useNativeHeaderHeight: () => 0 }));
+vi.mock("@/features/settings/monoOnly", () => ({ useMonoOnlyLayout: () => [false] }));
 vi.mock("@/features/models/useMonoModel", () => ({ useMonoModel: () => ({}) }));
 vi.mock("@/features/workspace/monoAccent", () => ({ useMonoAccent: () => "theme" }));
 vi.mock("@/features/sessions/MonoCards", () => ({
@@ -90,7 +92,8 @@ vi.mock("@/features/sessions/SessionScreen", () => ({ SessionScreen: ({ children
 vi.mock("@/features/sessions/Transcript", () => ({ Transcript: () => null }));
 vi.mock("@/features/sessions/NativeTranscript", () => ({ NativeTranscript: () => null }));
 vi.mock("@/ui/LiquidView", () => ({ LiquidView: () => null }));
-vi.mock("@/ui/theme", () => ({ AccentOverride: ({ children }: { children: ReactNode }) => children, ACCENTS: {}, useScheme: () => "dark", radii: { card: 22 }, themedStyles: () => () => new Proxy({}, { get: () => ({}) }) }));
+vi.mock("@/ui/theme", () => ({ AccentOverride: ({ children }: { children: ReactNode }) => children, ACCENTS: {}, useScheme: () => "dark",
+  useAccent: () => "theme", radii: { card: 22 }, themedStyles: () => () => new Proxy({}, { get: () => ({}) }) }));
 
 describe("Mono approvals through the real workspace provider and card", () => {
   it.each([false, true])("sends the routed command and keeps a replacement after a delayed reply (native: %s)", async (native) => {

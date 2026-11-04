@@ -257,7 +257,6 @@ mod model_label_tests {
                             supports_auto: None,
                             tiers: Vec::new(),
                             controls: Vec::new(),
-                            supports_auto: None,
                         })
                         .collect(),
                 )];

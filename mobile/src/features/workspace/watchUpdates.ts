@@ -1,4 +1,4 @@
-import type { ApprovalPrompt, QuestionPrompt, Turn, UsageLimitState } from "./types";
+import type { UsageLimitState, ApprovalPrompt, QuestionPrompt, Turn } from "./types";
 
 /** A frame of a watched conversation, from the desktop's watchUpdate. */
 export type WatchFrame = {

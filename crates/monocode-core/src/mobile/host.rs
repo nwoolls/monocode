@@ -25,6 +25,7 @@ const APP_METHODS: &[&str] = &[
     "accounts.usage",
     "session.configure",
     "session.respondApproval",
+    "session.handoff",
     "project.changes",
     "project.worktrees",
     "project.files",

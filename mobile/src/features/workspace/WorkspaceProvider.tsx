@@ -23,7 +23,7 @@ import {
   type Conversation,
 } from "@/features/connection/ConnectionProvider";
 import { selectedWorkspace } from "@/features/connection/selection";
-import type { ModelCatalog, ModelChoice } from "@/features/models/types";
+import type { ModelCatalog, ModelChoice, ModelPick } from "@/features/models/types";
 import { toWire, type Attachment } from "@/features/sessions/attachments";
 import type {
   UsageLimitState, DisplayedQuestionPrompt, ApprovalPrompt, ApprovalDecision, Message, Mono, MonoSubsessions, Project, QuestionPrompt,
@@ -92,6 +92,7 @@ type Workspace = {
   /** The model sheet's catalog, for a conversation or else a new session in the project. */
   listModels: (projectId: string, conversationId?: string) => Promise<ModelCatalog>;
   /** Sets a conversation's model and settings, or its permissions, as the desktop's pickers do. */
+  handoffSession: (conversationId: string, turnId: string, target: ModelPick) => Promise<{ sessionId: string }>;
   configureSession: (conversationId: string, choice: Partial<ModelChoice>) => Promise<void>;
   /** Renames a session as the desktop sidebar does; the new title shows at once. */
   renameSession: (session: SessionSummary, title: string) => Promise<void>;
@@ -574,6 +575,15 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       }),
     [command],
   );
+  const handoffSession = useCallback(
+    async (conversationId: string, turnId: string, target: ModelPick) => {
+      const result = await mutate<{ sessionId: string }>("session.handoff", { conversationId, turnId, ...target });
+      starting.current.set(result.sessionId, Date.now() + STARTUP_GRACE_MS);
+      void refresh();
+      return result;
+    },
+    [mutate, refresh],
+  );
   const configureSession = useCallback(
     async (conversationId: string, choice: Partial<ModelChoice>) => {
       await mutate("session.configure", { conversationId, ...choice });
@@ -800,6 +810,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       rememberSession,
       loadOlder,
       listModels,
+      handoffSession,
       configureSession,
       renameSession,
       editMono,
@@ -827,6 +838,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     rememberSession,
     loadOlder,
     listModels,
+    handoffSession,
     configureSession,
     renameSession,
     deleteSession,

@@ -285,6 +285,33 @@ describe("filterInboxByTime", () => {
 });
 
 describe("applyInboxFilters", () => {
+  it("keeps Bitbucket pull requests visible when pull requests are hidden for GitHub", () => {
+    const rows = [
+      item({
+        number: 1,
+        kind: "pr",
+        provider: "bitbucket",
+        updatedAt: "2026-08-27T10:00:00Z",
+      }),
+      item({
+        number: 2,
+        kind: "pr",
+        provider: "github",
+        updatedAt: "2026-08-27T10:00:00Z",
+      }),
+    ];
+    const filters = { ...DEFAULT_INBOX_FILTERS, hiddenKinds: ["pr" as const] };
+
+    expect(
+      applyInboxFilters(rows, filters, "", Date.now(), "bitbucket").map(
+        (row) => row.number,
+      ),
+    ).toEqual([1]);
+    expect(applyInboxFilters(rows, filters, "", Date.now(), "github")).toEqual(
+      [],
+    );
+  });
+
   it("combines project, kind, and search filters", () => {
     const rows = [
       item({
@@ -412,6 +439,12 @@ describe("hasActiveInboxFilters", () => {
     ).toBe(false);
   });
 
+  it("ignores a hidden type on the Bitbucket tab, which only has pull requests", () => {
+    const hidePrs = { ...DEFAULT_INBOX_FILTERS, hiddenKinds: ["pr" as const] };
+    expect(hasActiveInboxFilters(hidePrs, "bitbucket")).toBe(false);
+    expect(hasActiveInboxFilters(hidePrs, "github")).toBe(true);
+  });
+
   it("is true when a Linear project is hidden on the Linear tab", () => {
     expect(
       hasActiveInboxFilters(
@@ -505,6 +538,7 @@ describe("visibleInboxSources", () => {
         gitlab: false,
         azuredevops: false,
         sonar: false,
+        bitbucket: false,
       }),
     ).toEqual([]);
     expect(
@@ -515,6 +549,7 @@ describe("visibleInboxSources", () => {
         gitlab: false,
         azuredevops: false,
         sonar: false,
+        bitbucket: false,
       }),
     ).toEqual(["github"]);
     expect(
@@ -525,6 +560,7 @@ describe("visibleInboxSources", () => {
         gitlab: false,
         azuredevops: false,
         sonar: false,
+        bitbucket: false,
       }),
     ).toEqual(["linear", "jira"]);
     expect(
@@ -534,9 +570,10 @@ describe("visibleInboxSources", () => {
         jira: true,
         gitlab: true,
         azuredevops: true,
+        bitbucket: true,
         sonar: true,
       }),
-    ).toEqual(["github", "linear", "jira", "gitlab", "azuredevops", "sonar"]);
+    ).toEqual(["github", "linear", "jira", "gitlab", "azuredevops", "sonar", "bitbucket"]);
   });
 
   it("keeps unresolved sources visible so tabs do not flash away", () => {
@@ -547,9 +584,10 @@ describe("visibleInboxSources", () => {
         jira: null,
         gitlab: null,
         azuredevops: null,
+        bitbucket: null,
         sonar: null,
       }),
-    ).toEqual(["github", "linear", "jira", "gitlab", "azuredevops", "sonar"]);
+    ).toEqual(["github", "linear", "jira", "gitlab", "azuredevops", "sonar", "bitbucket"]);
   });
 });
 
@@ -562,6 +600,7 @@ describe("connectableInboxSources", () => {
         jira: false,
         gitlab: true,
         azuredevops: true,
+        bitbucket: true,
       }),
     ).toEqual(["linear", "jira"]);
     expect(
@@ -571,8 +610,16 @@ describe("connectableInboxSources", () => {
         jira: false,
         gitlab: false,
         azuredevops: false,
+        bitbucket: false,
       }),
-    ).toEqual(["github", "linear", "jira", "gitlab", "azuredevops"]);
+    ).toEqual([
+      "github",
+      "linear",
+      "jira",
+      "gitlab",
+      "azuredevops",
+      "bitbucket",
+    ]);
   });
 
   it("offers nothing while the checks are unresolved", () => {
@@ -583,6 +630,7 @@ describe("connectableInboxSources", () => {
         jira: null,
         gitlab: null,
         azuredevops: null,
+        bitbucket: null,
       }),
     ).toEqual([]);
   });
@@ -597,6 +645,7 @@ describe("resolveInboxSource", () => {
         jira: false,
         gitlab: true,
         azuredevops: false,
+        bitbucket: false,
       }),
     ).toBe("github");
     expect(
@@ -606,6 +655,7 @@ describe("resolveInboxSource", () => {
         jira: false,
         gitlab: true,
         azuredevops: false,
+        bitbucket: false,
       }),
     ).toBe("gitlab");
   });
@@ -619,6 +669,7 @@ describe("resolveInboxSource", () => {
         gitlab: false,
         azuredevops: false,
         sonar: false,
+        bitbucket: false,
       }),
     ).toBe("github");
   });
@@ -631,6 +682,7 @@ describe("resolveInboxSource", () => {
         jira: true,
         gitlab: false,
         azuredevops: false,
+        bitbucket: false,
       }),
     ).toBe("linear");
     expect(
@@ -640,6 +692,7 @@ describe("resolveInboxSource", () => {
         jira: false,
         gitlab: false,
         azuredevops: false,
+        bitbucket: false,
       }),
     ).toBe("github");
   });
@@ -681,6 +734,7 @@ describe("inbox connection cache", () => {
       sonar: true,
       gitlab: false,
       azuredevops: false,
+      bitbucket: false,
     });
     expect(loadInboxConnections()).toEqual({
       github: true,
@@ -689,6 +743,7 @@ describe("inbox connection cache", () => {
       sonar: true,
       gitlab: false,
       azuredevops: false,
+      bitbucket: false,
     });
   });
 
@@ -700,6 +755,7 @@ describe("inbox connection cache", () => {
       sonar: null,
       gitlab: null,
       azuredevops: null,
+      bitbucket: null,
     });
   });
 
@@ -712,6 +768,7 @@ describe("inbox connection cache", () => {
       sonar: null,
       gitlab: null,
       azuredevops: null,
+      bitbucket: null,
     });
     localStorage.setItem(KEY, '{"linear":"yes"}');
     expect(loadInboxConnections()).toEqual({
@@ -721,6 +778,7 @@ describe("inbox connection cache", () => {
       sonar: null,
       gitlab: null,
       azuredevops: null,
+      bitbucket: null,
     });
   });
 });

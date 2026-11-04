@@ -5,6 +5,7 @@ export const INBOX_PROVIDER_LABELS: Record<InboxProvider, string> = {
   linear: "Linear",
   jira: "Jira",
   sonar: "Sonar",
+  bitbucket: "Bitbucket",
   gitlab: "GitLab",
   azuredevops: "ADO",
 };

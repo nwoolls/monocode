@@ -28,6 +28,13 @@ import {
   type JiraIssue,
 } from "./jira";
 import {
+  bitbucketConnected,
+  bitbucketRepo,
+  clearBitbucketCache,
+  listBitbucketWorkItems,
+  type BitbucketWorkItem,
+} from "./bitbucket";
+import {
   clearGitlabCache,
   gitlabConnected,
   gitlabRepo,
@@ -83,7 +90,7 @@ export type GithubWorkItem = {
 };
 
 export type InboxProvider =
-  "github" | "linear" | "jira" | "gitlab" | "azuredevops" | "sonar";
+  "github" | "linear" | "jira" | "gitlab" | "azuredevops" | "sonar" | "bitbucket";
 
 export type InboxItem = Omit<GithubWorkItem, "kind"> & {
   kind: InboxKind;
@@ -245,6 +252,7 @@ export function clearInboxCache() {
   prDiffInflight.clear();
   clearGitlabCache();
   clearAzureDevOpsCache();
+  clearBitbucketCache();
 }
 
 export function inboxListCacheKey(
@@ -655,6 +663,8 @@ export function gitlabAttentionLabel(reason: string): string {
       return "Removed from merge train";
     case "member_access_requested":
       return "Access requested";
+    case "authored":
+      return "Authored by you";
     case "marked":
       return "Added to your to-dos";
     default:
@@ -850,6 +860,22 @@ async function fetchInboxItems(
     if (azuredevops.error) errors.azuredevops = azuredevops.error;
   }
 
+  let bitbucketItems: InboxItem[] = [];
+  try {
+    if ((await bitbucketConnected()).connected) {
+      const bitbucket = await fetchRepositoryInboxItems(
+        "bitbucket",
+        unique,
+        query,
+        preferredPaths,
+      );
+      bitbucketItems = bitbucket.items;
+      if (bitbucket.error) errors.bitbucket = bitbucket.error;
+    }
+  } catch (error) {
+    errors.bitbucket = inboxErrorMessage(error);
+  }
+
   return {
     items: dedupeInboxItems(
       [
@@ -859,6 +885,7 @@ async function fetchInboxItems(
         ...sonarItems,
         ...gitlabItems,
         ...azureDevOpsItems,
+        ...bitbucketItems,
       ],
       preferredPaths,
     ),
@@ -868,7 +895,7 @@ async function fetchInboxItems(
 }
 
 async function fetchRepositoryInboxItems(
-  provider: "gitlab" | "azuredevops",
+  provider: "gitlab" | "azuredevops" | "bitbucket",
   projects: readonly { path: string }[],
   query: InboxQuery,
   preferredPaths: readonly string[],
@@ -881,12 +908,26 @@ async function fetchRepositoryInboxItems(
           listWorkItems: listGitlabWorkItems,
           toInboxItem: gitlabWorkItemToInboxItem,
         }
-      : {
-          findRepo: azureDevOpsRepo,
-          listTodos: listAzureDevOpsTodos,
-          listWorkItems: listAzureDevOpsWorkItems,
-          toInboxItem: azureDevOpsWorkItemToInboxItem,
-        };
+      : provider === "azuredevops"
+        ? {
+            findRepo: azureDevOpsRepo,
+            listTodos: listAzureDevOpsTodos,
+            listWorkItems: listAzureDevOpsWorkItems,
+            toInboxItem: azureDevOpsWorkItemToInboxItem,
+          }
+        : {
+            findRepo: bitbucketRepo,
+            // Bitbucket has no cross-repo to-do feed; "assigned to me" is
+            // answered per repository instead.
+            listTodos: undefined,
+            listWorkItems: listBitbucketWorkItems,
+            toInboxItem: bitbucketWorkItemToInboxItem,
+          };
+  // Bitbucket retired its issue tracker (and API) in August 2026.
+  const kinds =
+    provider === "bitbucket"
+      ? (["pr"] as const)
+      : (["issue", "pr"] as const);
   const resolved = await Promise.all(
     projects.map(async (project) => {
       try {
@@ -903,11 +944,11 @@ async function fetchRepositoryInboxItems(
     resolved.filter((project) => project.repo.length > 0),
   );
 
-  if (query.assignedToMe) {
+  if (query.assignedToMe && listTodos) {
     const localPathByRepo = new Map(
       grouped.map((project) => [project.repo.toLowerCase(), project.path]),
     );
-    const jobs = (["issue", "pr"] as const).map(async (kind) => {
+    const jobs = kinds.map(async (kind) => {
       const items = await listTodos({
         kind,
         limit: query.state === "all" ? INBOX_ALL_LIMIT : undefined,
@@ -924,10 +965,10 @@ async function fetchRepositoryInboxItems(
   }
 
   const jobs = grouped.flatMap((project) =>
-    (["issue", "pr"] as const).map(async (kind) => {
+    kinds.map(async (kind) => {
       const items = await listWorkItems(project.path, {
         kind,
-        assignedToMe: false,
+        assignedToMe: query.assignedToMe,
         state: query.state,
         limit: query.state === "all" ? INBOX_ALL_LIMIT : undefined,
       });
@@ -1029,6 +1070,19 @@ function gitlabWorkItemToInboxItem(
   return {
     ...item,
     provider: "gitlab",
+    repo: item.repo || repo,
+    projectPath,
+  };
+}
+
+function bitbucketWorkItemToInboxItem(
+  item: BitbucketWorkItem,
+  projectPath: string,
+  repo: string,
+): InboxItem {
+  return {
+    ...item,
+    provider: "bitbucket",
     repo: item.repo || repo,
     projectPath,
   };
@@ -1315,7 +1369,9 @@ export function inboxStartDraft(item: InboxItem, body?: string): string {
       ? "GitLab"
       : item.provider === "azuredevops"
         ? "ADO"
-        : "GitHub";
+        : item.provider === "bitbucket"
+          ? "Bitbucket"
+          : "GitHub";
   const providerKind =
     item.provider === "gitlab" && item.kind === "pr" ? "merge request" : kind;
   const title =
